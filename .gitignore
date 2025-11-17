@@ -1,0 +1,26 @@
+// Ignore files
+.env
+.env.test
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+.cache/
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.db
+*.sqlite3
+aimic.db
