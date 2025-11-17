@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import os
 
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./aimic.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///aimic.db")
 
 
 engine = create_engine(
