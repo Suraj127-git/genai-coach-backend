@@ -1,0 +1,16 @@
+services:
+  api:
+    container_name: genai-coach-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: genai-coach-backend:latest
+    environment:
+      - PORT=8000
+      - WEB_CONCURRENCY=2
+      - DATABASE_URL=sqlite:////app/data/aimic.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

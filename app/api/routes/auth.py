@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
+from typing import Optional
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 import uuid
@@ -99,6 +100,42 @@ def refresh(payload: RefreshRequest | None = None, response: Response = None, re
             path="/",
         )
     return TokenPair(access_token=new_access, refresh_token=new_refresh)
+
+
+@router.put("/me")
+def update_me(
+    payload: dict,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    new_email: Optional[str] = payload.get("email")
+    new_name: Optional[str] = payload.get("name")
+    current_password: Optional[str] = payload.get("currentPassword")
+    new_password: Optional[str] = payload.get("newPassword")
+
+    if new_email and new_email != user.email:
+        exists = db.query(User).filter(User.email == new_email).first()
+        if exists:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use")
+        user.email = new_email
+
+    if new_name is not None:
+        user.name = new_name
+
+    if new_password:
+        if not current_password or not verify_password(current_password, user.password_hash):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password invalid")
+        user.password_hash = hash_password(new_password)
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {"user": UserPublic(id=user.id, email=user.email, name=user.name)}
 
 @router.post("/logout")
 def logout(response: Response):
