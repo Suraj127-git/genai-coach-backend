@@ -1,23 +1,29 @@
 services:
+  # ============================================================================
+  # DATABASE LAYER
+  # ============================================================================
   mysql:
     image: mysql:8.0
     container_name: genai-coach-mysql
     env_file:
       - .env
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 30s
+    networks:
+      - genai-coach-network
     restart: unless-stopped
 
   phpmyadmin:
@@ -26,43 +32,148 @@ services:
     env_file:
       - .env
     environment:
-      - PMA_HOST=mysql
-      - PMA_PORT=3306
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - UPLOAD_LIMIT=64M
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      UPLOAD_LIMIT: 64M
     depends_on:
       mysql:
         condition: service_healthy
     ports:
       - "8080:80"
+    networks:
+      - genai-coach-network
     restart: unless-stopped
 
+  # ============================================================================
+  # STORAGE LAYER
+  # ============================================================================
   minio:
     image: minio/minio:latest
     container_name: genai-coach-minio
     environment:
-      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - genai-coach-network
     restart: unless-stopped
 
   minio-init:
     image: minio/mc:latest
     container_name: genai-coach-minio-init
     depends_on:
-      - minio
-    entrypoint: ["/bin/sh","-c"]
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
     command: >
-      "sleep 3 &&
+      "
+      sleep 5 &&
       mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-minioadmin} ${AWS_SECRET_ACCESS_KEY:-minioadmin} &&
       mc mb -p local/${AWS_S3_BUCKET:-genai-coach-recordings} || true &&
-      mc anonymous set download local/${AWS_S3_BUCKET:-genai-coach-recordings} || true"
+      mc anonymous set download local/${AWS_S3_BUCKET:-genai-coach-recordings} || true &&
+      echo 'MinIO bucket initialization complete'
+      "
+    networks:
+      - genai-coach-network
 
+  # ============================================================================
+  # OBSERVABILITY LAYER
+  # ============================================================================
+  tempo:
+    image: grafana/tempo:latest
+    container_name: genai-coach-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    user: "0:0"
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/tmp/tempo
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: genai-coach-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: genai-coach-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'    
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
+
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: genai-coach-grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # 🚀 NEW: PROMTAIL – Log collector for Loki
+  # ============================================================================
+  promtail:
+    image: grafana/promtail:latest
+    container_name: genai-coach-promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # APPLICATION LAYER
+  # ============================================================================
   api:
     container_name: genai-coach-backend
     build:
@@ -71,10 +182,10 @@ services:
     image: genai-coach-backend:latest
     env_file:
       - .env
-    user: "0:0"
     environment:
-      - PORT=8000
-      - WEB_CONCURRENCY=2
+      PORT: 8000
+      MYSQL_HOST: mysql
+      AWS_ENDPOINT_URL: http://minio:9000
     ports:
       - "8000:8000"
     volumes:
@@ -82,12 +193,33 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - genai-coach-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  genai-coach-network:
+    driver: bridge
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
 volumes:
   api-data:
-    driver: local
   minio-data:
-    driver: local
   mysql-data:
-    driver: local
+  tempo-data:
+  loki-data:
+  prometheus-data:
+  grafana-data:

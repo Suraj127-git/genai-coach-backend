@@ -11,7 +11,7 @@ ENV PYTHONPATH=/app
 
 WORKDIR /app
 
-# System libraries (cryptography/bcrypt build deps). Safe even if wheels are used.
+# System libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         libffi-dev \

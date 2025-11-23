@@ -1,0 +1,12 @@
+2025-11-23T13:18:14.600299217Z INFO: Formatting 1st pool, 1 set(s), 1 drives per set.
+2025-11-23T13:18:14.600376887Z INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.
+2025-11-23T13:18:14.782779365Z MinIO Object Storage Server
+2025-11-23T13:18:14.789887052Z Copyright: 2015-2025 MinIO, Inc.
+2025-11-23T13:18:14.789905414Z License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
+2025-11-23T13:18:14.789910135Z Version: RELEASE.2025-09-07T16-13-09Z (go1.24.6 linux/amd64)
+2025-11-23T13:18:14.789914004Z 
+2025-11-23T13:18:14.789918324Z API: http://172.18.0.2:9000  http://127.0.0.1:9000 
+2025-11-23T13:18:14.789922444Z WebUI: http://172.18.0.2:9001 http://127.0.0.1:9001  
+2025-11-23T13:18:14.789926604Z 
+2025-11-23T13:18:14.789929791Z Docs: https://docs.min.io
+2025-11-23T13:18:14.789933540Z WARN: Detected default credentials 'minioadmin:minioadmin', we recommend that you change these values with 'MINIO_ROOT_USER' and 'MINIO_ROOT_PASSWORD' environment variables
