@@ -90,25 +90,30 @@ def configure_logging():
         tags={"service": "genai-coach-api", "environment": os.getenv("ENV", "dev")},
     )
 
-    # JSON formatter includes otelTraceID and otelSpanID fields. The TraceLoggingFilter
-    # will ensure those attributes exist on every record.
+    # 🚀 Updated: Use ISO 8601 timestamp format for better parsing
     formatter = logging.Formatter(
         '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
         '"trace_id": "%(otelTraceID)s", "span_id": "%(otelSpanID)s", '
-        '"service": "genai-coach-api", "logger": "%(name)s", "message": "%(message)s"}'
+        '"service": "genai-coach-api", "logger": "%(name)s", "message": "%(message)s"}',
+        datefmt='%Y-%m-%dT%H:%M:%S'  # ISO 8601 format without timezone (Promtail will handle)
     )
     handler.setFormatter(formatter)
 
     trace_filter = TraceLoggingFilter()
     handler.addFilter(trace_filter)
 
+    # Also log to console for Docker logs collection by Promtail
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.addFilter(trace_filter)
+
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     root.addHandler(handler)
-    # Also add filter to root so other handlers (if any) receive trace fields as well.
+    root.addHandler(console_handler)  # Add console handler for Promtail
     root.addFilter(trace_filter)
 
-    # Instrument logging to propagate context — but do NOT have it override our formatter.
+    # Instrument logging to propagate context
     LoggingInstrumentor().instrument(set_logging_format=False)
 
     logging.getLogger(__name__).info("🚀 Loki logging initialized (with trace IDs)")
