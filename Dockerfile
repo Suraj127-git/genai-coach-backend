@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     WEB_CONCURRENCY=1 \
     DATABASE_URL=sqlite:///aimic.db
 
+# Ensure Python can import the application package when running Alembic
+ENV PYTHONPATH=/app
+
 WORKDIR /app
 
 # System libraries (cryptography/bcrypt build deps). Safe even if wheels are used.
@@ -20,8 +23,10 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy application code
+# Copy application code and migrations
 COPY app /app/app
+COPY alembic.ini /app/alembic.ini
+COPY migrations /app/migrations
 
 # Run as non-root user
 RUN useradd -ms /bin/bash appuser || adduser --disabled-password --gecos '' appuser \
@@ -31,4 +36,4 @@ USER appuser
 EXPOSE 8000
 
 # Use shell form to allow env variable expansion for PORT/WEB_CONCURRENCY
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --proxy-headers"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --proxy-headers"]

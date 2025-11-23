@@ -1,16 +1,93 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: genai-coach-mysql
+    env_file:
+      - .env
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: genai-coach-phpmyadmin
+    env_file:
+      - .env
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - UPLOAD_LIMIT=64M
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: genai-coach-minio
+    environment:
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: genai-coach-minio-init
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh","-c"]
+    command: >
+      "sleep 3 &&
+      mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-minioadmin} ${AWS_SECRET_ACCESS_KEY:-minioadmin} &&
+      mc mb -p local/${AWS_S3_BUCKET:-genai-coach-recordings} || true &&
+      mc anonymous set download local/${AWS_S3_BUCKET:-genai-coach-recordings} || true"
+
   api:
     container_name: genai-coach-backend
     build:
       context: .
       dockerfile: Dockerfile
     image: genai-coach-backend:latest
+    env_file:
+      - .env
+    user: "0:0"
     environment:
       - PORT=8000
       - WEB_CONCURRENCY=2
-      - DATABASE_URL=sqlite:////app/data/aimic.db
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
+      - api-data:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  api-data:
+    driver: local
+  minio-data:
+    driver: local
+  mysql-data:
+    driver: local

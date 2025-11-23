@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.routes.auth import router as auth_router
+from .api.routes.upload import router as upload_router
 from .db.session import init_db
 
 
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
     init_db()
 
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
+    app.include_router(upload_router, prefix="/upload", tags=["upload"])
 
     return app
 
