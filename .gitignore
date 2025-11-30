@@ -24,3 +24,4 @@ build/
 *.db
 *.sqlite3
 aimic.db
+.example.env

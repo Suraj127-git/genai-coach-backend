@@ -103,6 +103,9 @@ services:
       PORT: 8000
       MYSQL_HOST: mysql
       AWS_ENDPOINT_URL: http://minio:9000
+      OTLP_TRACES_ENDPOINT: ${OTLP_TRACES_ENDPOINT}
+      GRAFANA_OTLP_USER: ${GRAFANA_OTLP_USER}
+      GRAFANA_OTLP_TOKEN: ${GRAFANA_TOKEN}
     command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --reload --proxy-headers"]
     ports:
       - "8000:8000"
@@ -121,10 +124,59 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,compose_project"
+
+  # ============================================================================
+  # OBSERVABILITY LAYER
+  # ============================================================================
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: genai-coach-promtail
+    command: 
+      - -config.file=/etc/promtail/config.yml
+      - -config.expand-env=true
+    env_file:
+      - .env
+    environment:
+      GRAFANA_LOKI_TOKEN: ${GRAFANA_TOKEN}
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: genai-coach-prometheus
+    entrypoint: ["/entrypoint.sh"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus-entrypoint.sh:/entrypoint.sh:ro
+      - prometheus-data:/prometheus
+    environment:
+      GRAFANA_TOKEN: ${GRAFANA_TOKEN}
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "9090:9090"
+    networks:
+      - genai-coach-network
+    restart: unless-stopped
 
 # ============================================================================
 # NETWORKS
@@ -140,3 +192,4 @@ volumes:
   api-data:
   minio-data:
   mysql-data:
+  prometheus-data:

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
+import logging
 from typing import Optional
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -13,6 +14,7 @@ from ..deps import get_db, get_current_user_id
 
 
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+logger = logging.getLogger("auth")
 router = APIRouter()
 
 

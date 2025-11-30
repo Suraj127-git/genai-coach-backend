@@ -14,3 +14,10 @@ httpx==0.27.2
 boto3==1.35.36
 alembic==1.13.2
 PyMySQL==1.1.1
+opentelemetry-api==1.26.0
+opentelemetry-sdk==1.26.0
+opentelemetry-exporter-otlp==1.26.0
+opentelemetry-semantic-conventions==0.47b0
+opentelemetry-instrumentation-fastapi==0.47b0
+opentelemetry-instrumentation-requests==0.47b0
+opentelemetry-instrumentation-sqlalchemy==0.47b0
