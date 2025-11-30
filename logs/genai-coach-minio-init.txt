@@ -1,4 +1,0 @@
-2025-11-23T13:18:24.492224519Z Added `local` successfully.
-2025-11-23T13:18:24.596757684Z Bucket created successfully `local/genai-coach-recordings`.
-2025-11-23T13:18:24.745928834Z Access permission for `local/genai-coach-recordings` is set to `download`
-2025-11-23T13:18:24.753975382Z MinIO bucket initialization complete

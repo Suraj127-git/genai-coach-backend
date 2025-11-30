@@ -89,89 +89,6 @@ services:
       - genai-coach-network
 
   # ============================================================================
-  # OBSERVABILITY LAYER
-  # ============================================================================
-  tempo:
-    image: grafana/tempo:latest
-    container_name: genai-coach-tempo
-    command: ["-config.file=/etc/tempo.yaml"]
-    user: "0:0"
-    ports:
-      - "3200:3200"
-    volumes:
-      - ./tempo.yaml:/etc/tempo.yaml:ro
-      - tempo-data:/tmp/tempo
-    networks:
-      - genai-coach-network
-    restart: unless-stopped
-
-  loki:
-    image: grafana/loki:latest
-    container_name: genai-coach-loki
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
-      - loki-data:/loki
-    networks:
-      - genai-coach-network
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: genai-coach-prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-      - '--web.enable-remote-write-receiver'    
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yaml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    networks:
-      - genai-coach-network
-    restart: unless-stopped
-
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: genai-coach-grafana
-    environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
-    depends_on:
-      - tempo
-      - loki
-      - prometheus
-    networks:
-      - genai-coach-network
-    restart: unless-stopped
-
-  # ============================================================================
-  # 🚀 NEW: PROMTAIL – Log collector for Loki
-  # ============================================================================
-  promtail:
-    image: grafana/promtail:latest
-    container_name: genai-coach-promtail
-    volumes:
-      - ./promtail-config.yaml:/etc/promtail/config.yml
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - genai-coach-network
-    restart: unless-stopped
-
-  # ============================================================================
   # APPLICATION LAYER
   # ============================================================================
   api:
@@ -186,10 +103,14 @@ services:
       PORT: 8000
       MYSQL_HOST: mysql
       AWS_ENDPOINT_URL: http://minio:9000
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --reload --proxy-headers"]
     ports:
       - "8000:8000"
     volumes:
       - api-data:/app/data
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
     depends_on:
       mysql:
         condition: service_healthy
@@ -219,7 +140,3 @@ volumes:
   api-data:
   minio-data:
   mysql-data:
-  tempo-data:
-  loki-data:
-  prometheus-data:
-  grafana-data:
