@@ -3,80 +3,26 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
-import os
-import base64
 import logging
 import time
-
-from opentelemetry import trace
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
-
-from .api.routes.auth import router as auth_router
-from .api.routes.upload import router as upload_router
-from .ai.routers.chat import router as ai_chat_router
-from .ai.routers.voice import router as ai_voice_router
+from .core.config import SERVICE_NAME, ENV
+from .core.logging import configure_logging
+from .core.observability.opentelemetry import configure_tracing
 from .db.session import init_db
+from .modules.auth.routes import router as auth_router
+from .modules.upload.routes import router as upload_router
+from .modules.ai.routers.chat import router as ai_chat_router
+from .modules.ai.routers.voice import router as ai_voice_router
 
 
 # -------------------------------------------------------------------------
 # Tracing Configuration - MUST BE DEFINED BEFORE create_app()
 # -------------------------------------------------------------------------
-def configure_tracing():
-    """Configure OpenTelemetry tracing for Grafana Cloud"""
-    try:
-        endpoint = os.getenv("OTLP_TRACES_ENDPOINT")
-        user = os.getenv("GRAFANA_OTLP_USER")
-        token = os.getenv("GRAFANA_OTLP_TOKEN")
-
-        if not endpoint or not user or not token:
-            print("⚠️  Tracing not configured: Missing OTLP credentials")
-            return
-
-        # Create base64 encoded auth header
-        b64 = base64.b64encode(f"{user}:{token}".encode()).decode()
-        
-        # Configure resource with service information
-        resource = Resource.create({
-            "service.name": "genai-coach-backend",
-            "deployment.environment": os.getenv("ENV", "dev"),
-        })
-        
-        # Set up tracer provider
-        provider = TracerProvider(resource=resource)
-        trace.set_tracer_provider(provider)
-
-        # Ensure endpoint has correct path
-        if endpoint.endswith("/otlp"):
-            endpoint = endpoint.rstrip("/") + "/v1/traces"
-        
-        # Create and configure exporter
-        exporter = OTLPSpanExporter(
-            endpoint=endpoint,
-            headers={"Authorization": f"Basic {b64}"}
-        )
-        provider.add_span_processor(BatchSpanProcessor(exporter))
-        
-        print(f"✅ Tracing configured successfully to {endpoint}")
-    except Exception as e:
-        print(f"⚠️  Failed to configure tracing: {e}")
-        return
-
-def configure_logging():
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        '{"t":"%(asctime)s","lvl":"%(levelname)s","logger":"%(name)s","msg":"%(message)s","service":"genai-coach-backend"}',
-        datefmt="%Y-%m-%dT%H:%M:%S"
-    )
-    handler.setFormatter(formatter)
-    root = logging.getLogger()
-    root.handlers = []
-    root.setLevel(logging.INFO)
-    root.addHandler(handler)
+def _configure_logging_and_tracing():
+    configure_logging(SERVICE_NAME)
+    configure_tracing(SERVICE_NAME, ENV)
 
 
 # -------------------------------------------------------------------------
@@ -95,9 +41,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Configure tracing BEFORE instrumenting
-    configure_logging()
-    configure_tracing()
+    # Configure logging and tracing BEFORE instrumenting
+    _configure_logging_and_tracing()
     
     # Instrument FastAPI and requests
     FastAPIInstrumentor.instrument_app(app)
@@ -126,11 +71,8 @@ def create_app() -> FastAPI:
     @app.get("/metrics", tags=["monitoring"], response_class=PlainTextResponse)
     async def metrics():
         logging.getLogger(__name__).info("metrics")
-        return PlainTextResponse(
-            content="# HELP app_info Application information\n"
-                    "# TYPE app_info gauge\n"
-                    'app_info{version="0.1.0",service="genai-coach-backend"} 1\n'
-        )
+        from .core.observability.metrics import metrics_response
+        return metrics_response()
 
     # Include API routers
     app.include_router(auth_router, prefix="/auth", tags=["auth"])

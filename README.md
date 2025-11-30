@@ -6,38 +6,20 @@ A FastAPI backend for an AI-powered mock interview coach. It provides authentica
 
 - `app/` — application code
   - `main.py` — FastAPI app factory, CORS, tracing, routes, access logs
-  - `api/` — REST routes and dependencies
-    - `routes/auth.py` — register/login/me/refresh/logout
-    - `routes/upload.py` — presigned S3 upload
-    - `deps.py` — DB and auth dependency helpers
-  - `ai/` — modular AI architecture
-    - `adapters/` — external integrations
-      - `llms/` — Ollama and HuggingFace LLM adapters
-      - `search/` — DuckDuckGo search adapter
-      - `speech/` — speech-to-text and text-to-speech stubs
-      - `vector/` — Qdrant client adapter
-    - `agents/` — reusable agents
-      - `chat_agent.py` — conversational interview coach
-      - `voice_agent.py` — voice pipeline (STT → chat → TTS)
-      - `data_agent.py` — SQL-aware agent
-      - `document_agent.py` — ingestion + QA via memory
-    - `repositories/` — persistence-facing modules
-      - `memory_repository.py` — vector storage + search in Qdrant
-      - `user_repository.py` — user updates via SQLAlchemy
-    - `routers/` — FastAPI integration
-      - `chat.py` — `POST /ai/chat`
-      - `voice.py` — `WS /ws/transcribe`
-    - `services/` — domain services
-      - `embedding_service.py` — embeddings via HF/Ollama
-      - `tracing.py` — LangSmith env setup
-    - `tools/` — tool wrappers (search, SQL, memory)
-    - `workflows/` — LangGraph workflows (optional)
-    - `config.py` — AI provider/model settings
-  - `db/` — database setup
-    - `session.py` — SQLAlchemy engine and `init_db`
-    - `models.py` — `User` model
-  - `schemas/` — Pydantic models for API
-  - `security/jwt.py` — JWT issue/verify helpers
+  - `core/` — shared internal core
+    - `config.py` — service/environment settings
+    - `logging.py` — JSON logging configuration
+    - `exceptions.py` — common HTTP errors
+    - `security.py` — JWT create/verify helpers
+    - `dependencies.py` — DB and auth dependency helpers
+    - `observability/` — OTLP tracing, LangSmith, basic metrics
+  - `modules/` — domain modules
+    - `auth/` — authentication and tokens (`routes.py`, `models.py`, `schemas.py`, `service.py`, `repository.py`)
+    - `upload/` — S3 presign (`routes.py`, `schemas.py`, `service.py`, `s3_adapter.py`)
+    - `ai/` — AI module (adapters, agents, repositories, services, tools, workflows, routers, `config.py`)
+  - `db/` — database layer
+    - `base.py` — SQLAlchemy DeclarativeBase
+    - `session.py` — engine, `SessionLocal`, `init_db`
 - `migrations/` — Alembic migrations
 - `observability/` — Prometheus/Promtail configs
 - `Dockerfile`, `docker-compose.yml` — containerization
@@ -55,14 +37,14 @@ A FastAPI backend for an AI-powered mock interview coach. It provides authentica
 
 - `GET /health` — service health (`app/main.py`)
 - `GET /metrics` — simple metrics (`app/main.py`)
-- `POST /auth/register` — create user (`app/api/routes/auth.py`)
-- `POST /auth/login` — login and receive tokens (`app/api/routes/auth.py`)
-- `GET /auth/me` — current user (`app/api/routes/auth.py`)
-- `POST /auth/refresh` — exchange refresh for new access (`app/api/routes/auth.py`)
-- `POST /auth/logout` — clear refresh cookie (`app/api/routes/auth.py`)
-- `POST /upload/s3-presign` — presigned URL for uploads (`app/api/routes/upload.py`)
-- `POST /ai/chat` — chat reply (`app/ai/routers/chat.py`)
-- `WS /ws/transcribe` — voice session streaming (`app/ai/routers/voice.py`)
+- `POST /auth/register` — create user (`app/modules/auth/routes.py`)
+- `POST /auth/login` — login and receive tokens (`app/modules/auth/routes.py`)
+- `GET /auth/me` — current user (`app/modules/auth/routes.py`)
+- `POST /auth/refresh` — exchange refresh for new access (`app/modules/auth/routes.py`)
+- `POST /auth/logout` — clear refresh cookie (`app/modules/auth/routes.py`)
+- `POST /upload/s3-presign` — presigned URL for uploads (`app/modules/upload/routes.py`)
+- `POST /ai/chat` — chat reply (`app/modules/ai/routers/chat.py`)
+- `WS /ws/transcribe` — voice session streaming (`app/modules/ai/routers/voice.py`)
 
 ## Data Flow
 
