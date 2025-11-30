@@ -18,6 +18,8 @@ from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 from .api.routes.auth import router as auth_router
 from .api.routes.upload import router as upload_router
+from .ai.routers.chat import router as ai_chat_router
+from .ai.routers.voice import router as ai_voice_router
 from .db.session import init_db
 
 
@@ -133,6 +135,8 @@ def create_app() -> FastAPI:
     # Include API routers
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(upload_router, prefix="/upload", tags=["upload"])
+    app.include_router(ai_chat_router, prefix="/ai", tags=["ai"])
+    app.include_router(ai_voice_router, tags=["ai"])
 
     @app.middleware("http")
     async def access_log(request, call_next):
