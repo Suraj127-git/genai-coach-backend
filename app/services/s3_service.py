@@ -18,12 +18,17 @@ class S3Service:
 
     def __init__(self):
         """Initialize S3 client."""
-        self.s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION,
-        )
+        client_config = {
+            "aws_access_key_id": settings.AWS_ACCESS_KEY_ID,
+            "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY,
+            "region_name": settings.AWS_REGION,
+        }
+
+        # Add endpoint_url if provided (for Railway Object Storage)
+        if settings.AWS_ENDPOINT_URL:
+            client_config["endpoint_url"] = settings.AWS_ENDPOINT_URL
+
+        self.s3_client = boto3.client("s3", **client_config)
         self.bucket_name = settings.S3_BUCKET_NAME
 
     def generate_s3_key(self, user_id: int, extension: str) -> str:

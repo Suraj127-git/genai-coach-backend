@@ -1,8 +1,9 @@
 """
 Application configuration management using Pydantic Settings.
 """
-from typing import List
-from pydantic import field_validator
+import os
+from typing import List, Optional
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,11 +22,11 @@ class Settings(BaseSettings):
     RELOAD: bool = False
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: Optional[str] = None
     DB_ECHO: bool = False
 
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: Optional[str] = None
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -35,14 +36,15 @@ class Settings(BaseSettings):
     CORS_ALLOW_CREDENTIALS: bool = True
 
     # AWS S3
-    AWS_ACCESS_KEY_ID: str
-    AWS_SECRET_ACCESS_KEY: str
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION: str = "us-east-1"
-    S3_BUCKET_NAME: str
+    AWS_ENDPOINT_URL: Optional[str] = None
+    S3_BUCKET_NAME: Optional[str] = None
     S3_PRESIGNED_URL_EXPIRATION: int = 3600
 
     # AI Services
-    OPENAI_API_KEY: str
+    OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_WHISPER_MODEL: str = "whisper-1"
 
@@ -64,6 +66,31 @@ class Settings(BaseSettings):
         case_sensitive=True
     )
 
+    @model_validator(mode="after")
+    def set_database_url(self):
+        """Set DATABASE_URL from Railway's MYSQL_URL if not provided."""
+        if not self.DATABASE_URL:
+            mysql_url = os.getenv("MYSQL_URL")
+            if mysql_url:
+                # Convert mysql:// to mysql+aiomysql://
+                self.DATABASE_URL = mysql_url.replace("mysql://", "mysql+aiomysql://")
+            else:
+                raise ValueError("DATABASE_URL or MYSQL_URL must be set")
+        return self
+
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        """Validate required fields are set."""
+        if not self.SECRET_KEY:
+            raise ValueError("SECRET_KEY environment variable is required")
+        if not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
+            raise ValueError("AWS credentials (AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY) are required")
+        if not self.S3_BUCKET_NAME:
+            raise ValueError("S3_BUCKET_NAME environment variable is required")
+        return self
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
@@ -75,7 +102,7 @@ class Settings(BaseSettings):
     @property
     def database_url_sync(self) -> str:
         """Get synchronous database URL for Alembic."""
-        return self.DATABASE_URL.replace("+aiomysql", "+pymysql")
+        return self.DATABASE_URL.replace("+aiomysql", "+pymysql") if self.DATABASE_URL else ""
 
 
 settings = Settings()
