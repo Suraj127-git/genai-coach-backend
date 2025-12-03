@@ -9,37 +9,21 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
-# Password hashing context
-# Configure bcrypt to automatically truncate passwords longer than 72 bytes
+# Password hashing context using Argon2 (more modern, no length limits)
 pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__default_rounds=12,
-    bcrypt__truncate_error=False  # Disable error on passwords > 72 bytes
+    schemes=["argon2"],
+    deprecated="auto"
 )
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a plain password against a hashed password.
-
-    Bcrypt has a 72-byte limit, so passwords are truncated automatically.
-    """
-    # Truncate to 72 bytes for bcrypt compatibility
-    truncated = plain_password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
-    return pwd_context.verify(truncated, hashed_password)
+    """Verify a plain password against a hashed password."""
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """
-    Hash a plain password.
-
-    Bcrypt has a 72-byte limit, so passwords are truncated automatically.
-    This ensures consistent behavior during registration and login.
-    """
-    # Truncate to 72 bytes for bcrypt compatibility
-    truncated = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
-    return pwd_context.hash(truncated)
+    """Hash a plain password using Argon2."""
+    return pwd_context.hash(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
