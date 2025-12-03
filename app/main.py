@@ -60,11 +60,19 @@ setup_error_handlers(app)
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint with API information."""
+    import subprocess
+    try:
+        git_commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd='/app').decode('utf-8').strip()
+    except:
+        git_commit = "unknown"
+
     return {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "status": "running",
+        "git_commit": git_commit,
+        "password_truncation_fix": "enabled",  # Added in commit 54b4832
     }
 
 
