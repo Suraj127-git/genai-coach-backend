@@ -68,13 +68,6 @@ async def root():
     }
 
 
-# Health check endpoint
-@app.get("/health", tags=["Health"])
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
-
-
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(upload.router, prefix="/upload", tags=["Upload"])

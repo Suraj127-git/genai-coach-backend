@@ -130,10 +130,6 @@ def before_breadcrumb_filter(crumb, hint):
     - Remove sensitive data from breadcrumbs
     - Filter out noisy breadcrumbs
     """
-    # Filter out health check requests from breadcrumbs
-    if crumb.get("category") == "httplib" and crumb.get("data", {}).get("url", "").endswith("/health"):
-        return None
-
     # Remove sensitive data from query breadcrumbs
     if crumb.get("category") == "query":
         message = crumb.get("message", "")
