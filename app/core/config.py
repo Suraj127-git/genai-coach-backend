@@ -83,12 +83,8 @@ class Settings(BaseSettings):
         """Validate required fields are set."""
         if not self.SECRET_KEY:
             raise ValueError("SECRET_KEY environment variable is required")
-        if not self.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
-            raise ValueError("AWS credentials (AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY) are required")
-        if not self.S3_BUCKET_NAME:
-            raise ValueError("S3_BUCKET_NAME environment variable is required")
+        # OPENAI_API_KEY is optional - AI features will be disabled without it
+        # AWS credentials are optional - S3 features will be disabled without them
         return self
 
     @field_validator("CORS_ORIGINS", mode="before")
