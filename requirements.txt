@@ -22,7 +22,7 @@ boto3==1.35.36
 websockets==13.1
 
 # AI/ML (for chat and transcription)
-openai==1.54.3
+openai==1.58.1
 
 # LangChain Ecosystem (for AI Interview features)
 langchain==0.3.13
