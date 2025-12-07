@@ -32,6 +32,8 @@ langchain-openai==0.2.14
 langchain-groq==0.2.1
 langgraph==0.2.59
 langsmith==0.2.7
+langchain-huggingface==0.1.2
+langchain-chroma==0.1.4
 
 # Vector Database & Embeddings (for RAG)
 sentence-transformers==3.3.1

@@ -66,9 +66,9 @@ class LangGraphInterviewService:
 
         # Initialize LangSmith client for observability
         self.langsmith_client = None
-        if settings.LANGCHAIN_TRACING_V2 and settings.LANGCHAIN_API_KEY:
+        if settings.LANGSMITH_TRACING and settings.LANGSMITH_API_KEY:
             try:
-                self.langsmith_client = LangSmithClient(api_key=settings.LANGCHAIN_API_KEY)
+                self.langsmith_client = LangSmithClient(api_key=settings.LANGSMITH_API_KEY)
                 logger.info("LangSmith tracing enabled")
             except Exception as e:
                 logger.warning(f"Could not initialize LangSmith: {e}")
