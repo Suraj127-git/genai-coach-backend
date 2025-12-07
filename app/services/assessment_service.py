@@ -7,7 +7,6 @@ from datetime import datetime
 import re
 
 from langchain_groq import ChatGroq
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,18 +28,11 @@ class AssessmentService:
     def __init__(self):
         """Initialize assessment service with LLM."""
         # Use Groq for fast assessments
-        if settings.GROQ_API_KEY:
-            self.llm = ChatGroq(
-                api_key=settings.GROQ_API_KEY,
-                model_name=settings.GROQ_MODEL,
-                temperature=0.3  # Lower temperature for more consistent scoring
-            )
-        else:
-            self.llm = ChatOpenAI(
-                api_key=settings.OPENAI_API_KEY,
-                model=settings.OPENAI_MODEL,
-                temperature=0.3
-            )
+        self.llm = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name=settings.GROQ_MODEL,
+            temperature=0.3  # Lower temperature for more consistent scoring
+        )
 
     async def assess_interview_session(
         self,

@@ -4,8 +4,8 @@ AI Service API endpoint tests.
 Tests all AI-related endpoints:
 - POST /ai/chat
 
-NOTE: These tests require a valid OpenAI API key configured on the backend.
-If the OpenAI API key is invalid or missing, these tests will fail with 500 errors.
+NOTE: These tests require a valid Groq API key configured on the backend.
+If the Groq API key is invalid or missing, these tests will fail with 500 errors.
 This is expected behavior and indicates the backend needs proper API key configuration.
 """
 import pytest
@@ -31,9 +31,9 @@ class TestAIChat:
             headers=auth_headers,
         )
 
-        # AI tests may fail if OpenAI API key is not configured
+        # AI tests may fail if Groq API key is not configured
         if response.status_code == 500 and "API key" in response.text:
-            pytest.skip("OpenAI API key not configured on backend")
+            pytest.skip("Groq API key not configured on backend")
 
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()

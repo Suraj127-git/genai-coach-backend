@@ -8,7 +8,6 @@ import json
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_groq import ChatGroq
-from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
@@ -48,21 +47,12 @@ class LangGraphInterviewService:
         self.rag_service = RAGService()
 
         # Initialize LLM (Groq for fast responses)
-        if settings.GROQ_API_KEY:
-            self.llm = ChatGroq(
-                api_key=settings.GROQ_API_KEY,
-                model_name=settings.GROQ_MODEL,
-                temperature=0.7,
-                max_tokens=1024
-            )
-        else:
-            # Fallback to OpenAI
-            self.llm = ChatOpenAI(
-                api_key=settings.OPENAI_API_KEY,
-                model=settings.OPENAI_MODEL,
-                temperature=0.7,
-                max_tokens=1024
-            )
+        self.llm = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name=settings.GROQ_MODEL,
+            temperature=0.7,
+            max_tokens=1024
+        )
 
         # Initialize LangSmith client for observability
         self.langsmith_client = None

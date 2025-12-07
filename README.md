@@ -6,7 +6,7 @@ AI-powered mock interview coach backend API built with FastAPI, SQLAlchemy, and 
 
 - **Authentication**: JWT-based authentication with access and refresh tokens
 - **File Upload**: S3 presigned URL generation for secure file uploads
-- **AI Integration**: OpenAI GPT for chat and Whisper for transcription
+- **AI Integration**: Groq LLM for chat and Whisper for transcription
 - **WebSocket**: Real-time transcription support
 - **Interview Sessions**: Track and analyze interview practice sessions
 - **Feedback Generation**: AI-powered interview feedback with scores
@@ -17,7 +17,7 @@ AI-powered mock interview coach backend API built with FastAPI, SQLAlchemy, and 
 - **Database**: MySQL with SQLAlchemy 2.0 (async)
 - **Authentication**: JWT with python-jose
 - **File Storage**: AWS S3 with boto3
-- **AI Services**: OpenAI GPT-4 and Whisper
+- **AI Services**: Groq (Llama 3.3 70B and Whisper)
 - **WebSocket**: Native FastAPI WebSocket support
 - **Migrations**: Alembic
 
@@ -110,7 +110,7 @@ genai-coach-backend/
 - Python 3.11+
 - MySQL 8.0+
 - AWS Account (for S3)
-- OpenAI API Key
+- Groq API Key
 
 ### Local Development
 
@@ -143,7 +143,7 @@ SECRET_KEY=your-secret-key-min-32-chars
 AWS_ACCESS_KEY_ID=your-aws-key
 AWS_SECRET_ACCESS_KEY=your-aws-secret
 S3_BUCKET_NAME=your-bucket-name
-OPENAI_API_KEY=your-openai-key
+GROQ_API_KEY=your-groq-key
 ```
 
 5. **Create database**

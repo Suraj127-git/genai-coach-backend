@@ -43,11 +43,6 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: Optional[str] = None
     S3_PRESIGNED_URL_EXPIRATION: int = 3600
 
-    # AI Services - OpenAI
-    OPENAI_API_KEY: Optional[str] = None
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_WHISPER_MODEL: str = "whisper-1"
-
     # AI Services - Groq
     GROQ_API_KEY: Optional[str] = None
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
@@ -109,7 +104,8 @@ class Settings(BaseSettings):
         """Validate required fields are set."""
         if not self.SECRET_KEY:
             raise ValueError("SECRET_KEY environment variable is required")
-        # OPENAI_API_KEY is optional - AI features will be disabled without it
+        if not self.GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY environment variable is required")
         # AWS credentials are optional - S3 features will be disabled without them
         return self
 

@@ -1,10 +1,10 @@
 """
-AI service for chat and transcription using OpenAI.
+AI service for chat using Groq.
 """
 import tempfile
 from typing import Dict, List
 
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -15,13 +15,12 @@ logger = get_logger(__name__)
 
 
 class AIService:
-    """Service class for AI operations using OpenAI."""
+    """Service class for AI operations using Groq."""
 
     def __init__(self):
-        """Initialize OpenAI client."""
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = settings.OPENAI_MODEL
-        self.whisper_model = settings.OPENAI_WHISPER_MODEL
+        """Initialize Groq client."""
+        self.client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+        self.model = settings.GROQ_MODEL
         self.s3_service = S3Service()
 
     async def chat(self, message: str, context: List[Dict[str, str]] = None) -> str:
@@ -35,7 +34,7 @@ class AIService:
         Returns:
             AI assistant's response
         """
-        with start_span("ai.chat", "OpenAI Chat Completion"):
+        with start_span("ai.chat", "Groq Chat Completion"):
             add_breadcrumb(
                 "Starting AI chat",
                 category="ai",
@@ -87,7 +86,7 @@ class AIService:
 
     async def transcribe_audio(self, audio_s3_key: str) -> str:
         """
-        Transcribe audio file from S3 using Whisper API.
+        Transcribe audio file from S3 using Groq Whisper API.
 
         Args:
             audio_s3_key: S3 key of the audio file
@@ -95,12 +94,12 @@ class AIService:
         Returns:
             Transcribed text
         """
-        with start_span("ai.transcribe", "OpenAI Whisper Transcription"):
+        with start_span("ai.transcribe", "Groq Whisper Transcription"):
             add_breadcrumb(
                 "Starting audio transcription",
                 category="ai",
                 level="info",
-                data={"s3_key": audio_s3_key, "model": self.whisper_model}
+                data={"s3_key": audio_s3_key, "model": "whisper-large-v3"}
             )
 
             # Download audio from S3 to temp file
@@ -111,29 +110,31 @@ class AIService:
                 with start_span("s3.download", "Download audio from S3"):
                     self.s3_service.download_file(audio_s3_key, temp_path)
 
-                # Transcribe using Whisper
-                with start_span("ai.whisper", "Whisper API call"):
+                # Transcribe using Groq Whisper
+                with start_span("ai.whisper", "Groq Whisper API call"):
                     with open(temp_path, "rb") as audio_file:
                         response = await self.client.audio.transcriptions.create(
-                            model=self.whisper_model,
+                            model="whisper-large-v3",
                             file=audio_file,
                             response_format="text",
                         )
 
+                transcript = response.text if hasattr(response, 'text') else str(response)
+
                 set_context("transcription", {
                     "s3_key": audio_s3_key,
-                    "model": self.whisper_model,
-                    "transcript_length": len(response) if isinstance(response, str) else 0,
+                    "model": "whisper-large-v3",
+                    "transcript_length": len(transcript),
                 })
 
-                return response
+                return transcript
 
             except Exception as e:
                 logger.error(f"Transcription error: {e}")
                 capture_exception(
                     e,
                     tags={"service": "ai", "operation": "transcribe"},
-                    extra={"s3_key": audio_s3_key, "model": self.whisper_model}
+                    extra={"s3_key": audio_s3_key, "model": "whisper-large-v3"}
                 )
                 raise
             finally:
@@ -193,11 +194,10 @@ Format your response as JSON with keys: overall_score, communication_score, tech
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are an expert interview coach. Analyze interview responses and provide constructive, actionable feedback.",
+                            "content": "You are an expert interview coach. Analyze interview responses and provide constructive, actionable feedback. Return valid JSON only.",
                         },
                         {"role": "user", "content": prompt},
                     ],
-                    response_format={"type": "json_object"},
                     temperature=0.5,
                 )
 
