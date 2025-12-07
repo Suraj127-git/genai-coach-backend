@@ -31,6 +31,7 @@ from app.schemas.ai_interview import (
 from app.services.rag_service import RAGService
 from app.services.langgraph_interview_service import LangGraphInterviewService
 from app.services.assessment_service import AssessmentService
+from app.services.tts_service import TTSService
 from app.services.third_party_tools import generate_livekit_token, create_livekit_room
 from app.core.logging import get_logger
 from app.core.sentry import capture_exception
@@ -42,6 +43,7 @@ router = APIRouter()
 rag_service = RAGService()
 interview_service = LangGraphInterviewService()
 assessment_service = AssessmentService()
+tts_service = TTSService()
 
 
 # User Profile Endpoints
@@ -266,6 +268,20 @@ async def start_ai_interview(
             )
             db.add(interaction)
             await db.commit()
+            await db.refresh(interaction)
+
+            # Generate TTS audio for AI response
+            try:
+                ai_audio_s3_key = await tts_service.text_to_speech(
+                    text=result["response"],
+                    session_id=session.id,
+                    interaction_id=interaction.id
+                )
+                if ai_audio_s3_key:
+                    interaction.ai_audio_s3_key = ai_audio_s3_key
+                    await db.commit()
+            except Exception as e:
+                logger.warning(f"Failed to generate TTS for interaction {interaction.id}: {e}")
 
         logger.info(f"Started AI interview session {session.id} for user {current_user.id}")
 
@@ -343,6 +359,20 @@ async def send_interview_message(
         )
         db.add(ai_interaction)
         await db.commit()
+        await db.refresh(ai_interaction)
+
+        # Generate TTS audio for AI response
+        try:
+            ai_audio_s3_key = await tts_service.text_to_speech(
+                text=response_text,
+                session_id=session_id,
+                interaction_id=ai_interaction.id
+            )
+            if ai_audio_s3_key:
+                ai_interaction.ai_audio_s3_key = ai_audio_s3_key
+                await db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to generate TTS for interaction {ai_interaction.id}: {e}")
 
         return {
             "session_id": session_id,
@@ -481,10 +511,31 @@ async def get_ai_interview_session(
         )
         interactions = interactions_result.scalars().all()
 
+        # Add presigned URLs for AI audio
+        interactions_with_audio = []
+        for interaction in interactions:
+            interaction_dict = {
+                **interaction.__dict__,
+                "ai_audio_url": None
+            }
+
+            # Generate presigned URL for AI audio if it exists
+            if interaction.ai_audio_s3_key:
+                try:
+                    ai_audio_url = await tts_service.get_audio_url(
+                        interaction.ai_audio_s3_key,
+                        expiration=3600  # 1 hour
+                    )
+                    interaction_dict["ai_audio_url"] = ai_audio_url
+                except Exception as e:
+                    logger.warning(f"Failed to generate audio URL for interaction {interaction.id}: {e}")
+
+            interactions_with_audio.append(interaction_dict)
+
         # Build response
         response_data = {
             **session.__dict__,
-            "interactions": interactions
+            "interactions": interactions_with_audio
         }
 
         return response_data

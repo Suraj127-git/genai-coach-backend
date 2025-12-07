@@ -104,6 +104,8 @@ class AIInterviewInteractionResponse(BaseModel):
     words_per_minute: Optional[float]
     filler_word_count: Optional[int]
     sentiment_score: Optional[float]
+    audio_s3_key: Optional[str] = None  # User's audio
+    ai_audio_url: Optional[str] = None  # AI's audio response URL
 
     class Config:
         from_attributes = True

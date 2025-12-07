@@ -49,18 +49,19 @@ class S3Service:
         return f"uploads/{user_id}/{timestamp}_{unique_id}.{extension}"
 
     def generate_presigned_url(
-        self, key: str, content_type: str, expiration: int = None
+        self, key: str, content_type: str = None, expiration: int = None, method: str = "put_object"
     ) -> str:
         """
-        Generate a presigned URL for S3 upload.
+        Generate a presigned URL for S3 operations.
 
         Args:
             key: S3 object key
-            content_type: MIME type of the file
+            content_type: MIME type of the file (required for PUT)
             expiration: URL expiration time in seconds
+            method: S3 operation method ('put_object' for upload, 'get_object' for download)
 
         Returns:
-            Presigned URL for upload
+            Presigned URL
 
         Raises:
             ClientError: If presigned URL generation fails
@@ -69,13 +70,18 @@ class S3Service:
             expiration = settings.S3_PRESIGNED_URL_EXPIRATION
 
         try:
+            params = {
+                "Bucket": self.bucket_name,
+                "Key": key,
+            }
+
+            # Add ContentType only for PUT operations
+            if method == "put_object" and content_type:
+                params["ContentType"] = content_type
+
             url = self.s3_client.generate_presigned_url(
-                "put_object",
-                Params={
-                    "Bucket": self.bucket_name,
-                    "Key": key,
-                    "ContentType": content_type,
-                },
+                method,
+                Params=params,
                 ExpiresIn=expiration,
             )
             return url
@@ -130,4 +136,32 @@ class S3Service:
             self.s3_client.download_file(self.bucket_name, key, local_path)
         except ClientError as e:
             logger.error(f"Failed to download file {key}: {e}")
+            raise
+
+    def upload_file(self, local_path: str, key: str, content_type: str = None) -> None:
+        """
+        Upload a file to S3.
+
+        Args:
+            local_path: Local file path to upload
+            key: S3 object key
+            content_type: MIME type of the file
+
+        Raises:
+            ClientError: If upload fails
+        """
+        try:
+            extra_args = {}
+            if content_type:
+                extra_args["ContentType"] = content_type
+
+            self.s3_client.upload_file(
+                local_path,
+                self.bucket_name,
+                key,
+                ExtraArgs=extra_args if extra_args else None
+            )
+            logger.info(f"File uploaded successfully to {key}")
+        except ClientError as e:
+            logger.error(f"Failed to upload file to {key}: {e}")
             raise

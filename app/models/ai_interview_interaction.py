@@ -43,7 +43,8 @@ class AIInterviewInteraction(Base):
 
     # Audio Analysis (if applicable)
     audio_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    audio_s3_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    audio_s3_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # User's audio
+    ai_audio_s3_key: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # AI's audio response
     transcript_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # Speech Analysis Metrics

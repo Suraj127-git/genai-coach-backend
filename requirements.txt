@@ -38,6 +38,9 @@ chromadb==0.5.23
 # Third-party AI Services
 groq==0.13.0
 
+# Text-to-Speech
+gTTS==2.5.1
+
 # Additional Utilities for AI
 tiktoken==0.8.0
 tenacity==9.0.0
