@@ -13,10 +13,12 @@ from app.db.base import get_db
 from app.services.user_service import UserService
 from app.services.session_service import SessionService
 from app.services.ai_service import AIService
+from app.services.tts_service import TTSService
 
 logger = get_logger(__name__)
 router = APIRouter()
 ai_service = AIService()
+tts_service = TTSService()
 
 
 class ConnectionManager:
@@ -134,6 +136,37 @@ async def websocket_transcribe(websocket: WebSocket):
                     current_question = data.get("question")
                     logger.info(f"Session started for user {user_id}: {current_question}")
 
+                    # Generate TTS audio for the initial AI greeting
+                    try:
+                        initial_greeting = f"Hello! I am your AI interviewer. When you're ready, turn on your microphone and start speaking. {current_question}"
+
+                        # Generate TTS audio
+                        temp_session_id = user_id
+                        temp_interaction_id = 0  # Initial greeting
+
+                        ai_audio_s3_key = await tts_service.text_to_speech(
+                            text=initial_greeting,
+                            session_id=temp_session_id,
+                            interaction_id=temp_interaction_id
+                        )
+
+                        if ai_audio_s3_key:
+                            # Generate presigned URL for the audio
+                            ai_audio_url = await tts_service.get_audio_url(ai_audio_s3_key, expiration=3600)
+
+                            # Send AI audio URL to client
+                            await manager.send_message(
+                                user_id,
+                                {
+                                    "type": "ai_audio_url",
+                                    "url": ai_audio_url,
+                                    "text": initial_greeting
+                                }
+                            )
+                            logger.info(f"Generated initial AI audio for user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate initial AI audio: {e}")
+
                 elif message_type == "audio_uri":
                     # Transcribe audio from S3
                     audio_key = data.get("key")
@@ -148,7 +181,42 @@ async def websocket_transcribe(websocket: WebSocket):
                                 {"type": "transcript", "text": transcript_text}
                             )
 
-                            logger.info(f"Transcribed audio for user {user_id}")
+                            logger.info(f"Transcribed audio for user {user_id}: {transcript_text[:50]}...")
+
+                            # Generate AI response based on transcript and question
+                            ai_response_text = f"Thank you for your response. That was a good answer about yourself. Let me ask you another question: Can you describe a challenging project you worked on?"
+
+                            # For now, use a simple response. In production, you'd call the AI service:
+                            # ai_response_text = await ai_service.chat(transcript_text, context=[{"role": "system", "content": f"Question: {current_question}"}])
+
+                            # Generate TTS audio for AI response
+                            # We need a session_id and interaction_id - for simplicity, we'll create temporary ones
+                            # In a real implementation, you should create actual DB records
+                            temp_session_id = user_id  # Use user_id as temp session_id
+                            temp_interaction_id = int(data.get("timestamp", 1))  # Use timestamp as temp interaction_id
+
+                            ai_audio_s3_key = await tts_service.text_to_speech(
+                                text=ai_response_text,
+                                session_id=temp_session_id,
+                                interaction_id=temp_interaction_id
+                            )
+
+                            if ai_audio_s3_key:
+                                # Generate presigned URL for the audio
+                                ai_audio_url = await tts_service.get_audio_url(ai_audio_s3_key, expiration=3600)
+
+                                # Send AI audio URL to client
+                                await manager.send_message(
+                                    user_id,
+                                    {
+                                        "type": "ai_audio_url",
+                                        "url": ai_audio_url,
+                                        "text": ai_response_text
+                                    }
+                                )
+                                logger.info(f"Generated AI audio for user {user_id}")
+                            else:
+                                logger.warning(f"Failed to generate AI audio for user {user_id}")
 
                         except Exception as e:
                             logger.error(f"Transcription error: {e}")
