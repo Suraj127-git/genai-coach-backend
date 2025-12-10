@@ -38,9 +38,6 @@ gTTS==2.5.1
 tiktoken==0.8.0
 tenacity==9.0.0
 
-# Monitoring
-sentry-sdk[fastapi]==2.17.0
-
 # HTTP Client
 httpx==0.27.2
 

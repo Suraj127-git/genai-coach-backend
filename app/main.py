@@ -8,20 +8,15 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.logging import setup_logging, get_logger
-from app.core.sentry import init_sentry
 from app.middleware.cors import setup_cors
 from app.middleware.error_handler import setup_error_handlers
-from app.middleware.sentry_middleware import setup_sentry_middleware
 from app.middleware.rate_limiter import setup_rate_limiting
 from app.middleware.logging_middleware import setup_logging_middleware
 from app.api.endpoints import auth, upload, sessions, ai, websocket, debug, ai_interview
 
-# Setup logging
+# Setup logging (replaces Sentry)
 setup_logging()
 logger = get_logger(__name__)
-
-# Initialize Sentry
-init_sentry()
 
 
 @asynccontextmanager
@@ -68,7 +63,6 @@ app = FastAPI(
 setup_cors(app)
 setup_logging_middleware(app)  # Logging first to capture all requests
 setup_rate_limiting(app)  # Rate limiting before processing
-setup_sentry_middleware(app)  # Sentry monitoring
 setup_error_handlers(app)  # Error handling last
 
 
